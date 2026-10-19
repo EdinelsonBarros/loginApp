@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login</title>
+    <link rel="stylesheet" th:href="@{/css/login.css}">
+</head>
+<body>
+<main class="logincontainer">
+    <div class="card">
+        <div class="conteinerImg">
+            <div class="imageBox">
+                <img th:src="@{/images/backgroundLoginPage.jpg}" class="backimg">
+                <div class="text-overlay">
+                    <h1>Lorem ipsum dolor, sit amet consectetur.</h1>
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptas dignissimos similique dolores quis accusamus aut hic sint pariatur animi, libero nesciunt recusandae soluta ratione quo nam dolore maiores reiciendis dolorum?</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="conteinerForm">
+            <div>
+                <img class="cardicon" th:src="@{images/ellipse.png}">
+            </div>
+
+            <h2>Login</h2>
+            <p class="acesso">Lorem ipsum dolor, sit amet consectetur.</p>
+            <p th:if="${param.error}" class="alert">E-mail ou senha inválidos.</p>
+            <p th:if="${param.logout}" class="info">Você saiu da sua conta.</p>
+
+            <form  th:action="@{/login}" method="post">
+                <div class="conteinerInput">
+                    <label for="username">E-mail:</label>
+                    <input class="inputLogin" type="email" id="username" name="username" placeholder="Digite seu email de login..." required autofocus>
+                </div>
+                <div class="conteinerInput">
+                    <label  for="password">Senha:</label>
+                    <input class="inputLogin" type="password" id="password" name="password" placeholder="Digite sua senha aqui..." required>
+                </div>
+                <button class="btn" type="submit" >ENTRAR</button>
+            </form>
+            <p class="cadratre-se">Não tem sua conta? <a th:href="@{/register}">Cadastre-se aqui</a></p>
+        </div>
+    </div>
+</main>
+</body>
+</html>

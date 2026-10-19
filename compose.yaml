@@ -1,0 +1,61 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: loginapp
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --user=\"$${MYSQL_USER}\" --password=\"$${MYSQL_PASSWORD}\" --silent" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+    image: loginapp:0.0.1
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/loginapp?preserveInstants=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      BFF_CLIENT_SECRET: ${BFF_CLIENT_SECRET}
+      BFF_CALLBACK_URI: ${BFF_CALLBACK_URI}
+      BFF_AUTHORIZATION_URI: ${BFF_AUTHORIZATION_URI}
+      BFF_SIGNING_KEYSTORE: file:/run/secrets/auth-server.p12
+      JWK_KEYSTORE_PASSWORD: ${JWK_KEYSTORE_PASSWORD}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL}
+    volumes:
+      - ./secrets/auth-server.p12:/run/secrets/auth-server.p12:ro
+    restart: unless-stopped
+
+
+volumes:
+  mysql_data:
+  redis_data:

@@ -1,0 +1,858 @@
+# Resumo do Projeto: Serviço de Autenticação com BFF
+
+## Objetivo
+
+Serviço central de cadastro, autenticação e autorização para futuros microserviços. O Angular não recebe nem armazena access tokens ou refresh tokens; ele usa o BFF, que mantém os tokens no servidor associados à sessão do usuário.
+
+## Stack
+
+- **Frontend:** Angular
+- **Backend:** Spring Boot 4.1.1, Spring Security 7 e Java 17
+- **Banco relacional:** MySQL
+- **Sessões:** Spring Session com Redis; em desenvolvimento local, Memurai no Windows, em `localhost:6379`
+- **Protocolo:** OAuth2 e OpenID Connect com o Authorization Server integrado ao Spring Security
+
+## Arquitetura e configuração atual
+
+- O cliente OAuth é `bff-client`, confidencial, autenticado por `CLIENT_SECRET_BASIC`.
+- Fluxos habilitados: Authorization Code e Refresh Token, com PKCE usando `S256`.
+- Callback OAuth: `http://localhost:9000/bff/callback`.
+- Scopes: `openid` e `profile`.
+- Access token com duração de 10 minutos; refresh token com duração de 7 dias.
+- Refresh tokens são rotacionados (`reuseRefreshTokens(false)`).
+- O segredo do cliente é configurado por variável de ambiente, não diretamente no código.
+- Angular roda localmente em `http://localhost:4200` e usa um proxy de desenvolvimento para encaminhar `/bff/**` ao backend.
+
+## Persistência
+
+- **Sessões:** armazenadas no Redis. Foi confirmado que a sessão continua disponível após reiniciar o backend.
+- **Clientes e autorizações OAuth:** persistidos no MySQL com `JdbcRegisteredClientRepository` e `JdbcOAuth2AuthorizationService`.
+- Tabelas criadas: `oauth2_registered_client` e `oauth2_authorization`; também foi criada `oauth2_authorization_consent`, embora o consentimento esteja desabilitado para o BFF.
+- **Chave de assinatura RSA:** armazenada em arquivo PKCS12 fora do projeto, no perfil do usuário, com alias `loginapp-signing`. A senha é fornecida ao IntelliJ pela variável `JWK_KEYSTORE_PASSWORD`.
+- A permanência da chave foi validada pelo endpoint `/oauth2/jwks`: o `kid` e o módulo público `n` permanecem iguais após reiniciar a aplicação.
+
+## Fluxo BFF implementado
+
+1. `GET /bff/login` inicia o fluxo, cria `state` e valores PKCE e redireciona ao Authorization Server.
+2. Após o login, `GET /bff/callback` valida o `state`, troca o código por tokens e guarda access token, refresh token e ID token na sessão do servidor.
+3. O callback redireciona o navegador de volta ao Angular.
+4. `GET /bff/me` retorna o estado de autenticação e o nome do usuário, sem expor tokens.
+5. `GET /bff/csrf` fornece o CSRF para o Angular usar nas operações POST.
+6. `POST /bff/refresh` usa o refresh token da sessão, atualiza os tokens — incluindo o refresh token rotacionado — e responde `{"refreshed": true}`.
+7. `POST /bff/logout` remove os tokens guardados na sessão.
+
+O antigo `RefreshTokenCookieFilter` foi removido da cadeia de filtros do Authorization Server. Ele escondia o campo `refresh_token` das respostas de `/oauth2/token`, o que impedia o BFF de armazená-lo.
+
+## Estado validado
+
+- O login completo redireciona do Angular ao backend e retorna ao Angular após a autenticação.
+- O Angular consegue consultar `/bff/me` e `/bff/csrf`.
+- O refresh funcionou pelo Postman com o cookie de sessão e o token CSRF atuais.
+- Sessão, autorização, refresh token e chave RSA foram verificados após reiniciar o backend.
+- `/auth/register`, as entidades JPA e as claims personalizadas de autorização — `authorities` e `name` — já faziam parte da implementação anterior.
+
+## Próximos passos
+
+- Exibir o usuário conectado na interface Angular; atualmente, o exemplo registra o nome no console.
+- Conectar controles da interface para renovar a sessão e sair.
+- Implementar logout completo no Authorization Server. O `/bff/logout` atual remove os tokens do BFF, mas mantém a autenticação do usuário no Authorization Server.
+- Preparar configuração de produção: HTTPS, cookie seguro, segredo do cliente e chave PKCS12 gerenciados fora do repositório, além de origem/proxy apropriados para o Angular.
+- No futuro, adicionar o Spring Cloud Gateway e os microserviços que validarão os JWTs.
+
+ENTIDADES
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+
+@MappedSuperclass
+@Getter
+@Setter
+public abstract class BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(nullable = false)
+    private boolean isActive = true;
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import jakarta.validation.constraints.NotNull;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class Company extends BaseEntity{
+
+    @NotNull
+    @Column(nullable = false)
+    private String nomeFantasia; //NOME FANTASIA
+
+    @NotNull
+    @Column(nullable = false)
+    private String companySocialName;
+
+    @NotNull
+    @Column(nullable = false, unique = true)
+    private String cnpj; //id_company
+
+    private String email;
+
+    private String postalCode; // CEP
+
+    private String address;
+
+    private String addressNumber;
+
+    private String city;
+
+
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class CompanyManaging extends BaseEntity{
+
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private UserEntity userEntity;
+
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class CompanySystem extends BaseEntity{
+
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
+
+    @ManyToOne
+    @JoinColumn(name = "system_id")
+    private SystemEntity systemEntity;
+
+}
+
+package org.example.loginapp.domain;
+
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class Permission extends BaseEntity{
+
+    private String permissionName;
+    private String permissionDescription;
+
+    @ManyToOne
+    @JoinColumn(name = "system_id")
+    private SystemEntity systemEntity;
+
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import jakarta.validation.constraints.NotNull;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class Role extends BaseEntity{
+
+    @NotNull
+    @Column(nullable = false)
+    private String roleName;
+
+    private String description;
+
+    @ManyToOne
+    @JoinColumn(name = "system_id")
+    private SystemEntity systemEntity;
+
+    @JoinColumn(name = "company_id")
+    @ManyToOne
+    private Company company;
+
+    private String rolePosition; // cargo
+
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class RolePermission extends BaseEntity{
+
+    @JoinColumn(name = "role_id")
+    @ManyToOne
+    private Role role;
+
+    @JoinColumn(name = "permission_id")
+    @ManyToOne
+    private Permission permission;
+
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import jakarta.validation.constraints.NotNull;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class SystemEntity extends BaseEntity{
+
+    @NotNull
+    @Column(nullable = false)
+    private String systemName;
+
+}
+
+package org.example.loginapp.domain;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import jakarta.validation.constraints.NotNull;
+import org.jspecify.annotations.Nullable;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class UserEntity extends BaseEntity{
+
+    @NotNull
+    @Column(nullable = false)
+    private String userName;
+
+    @NotNull
+    @Column(nullable = false, unique = true)
+    private String userEmail;
+
+    @NotNull
+    @Column(nullable = false)
+    private String hashPassword;
+
+    @Column(nullable = false, unique = true)
+    private String userCpf;
+
+    @JoinColumn(name = "company_id")
+    @ManyToOne
+    private Company company;
+
+
+
+}
+
+package org.example.loginapp.controllers;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LoginController {
+    @GetMapping("/login")
+    public String login() {
+        return "login";
+    }
+}
+
+REPOSITORIES
+
+package org.example.loginapp.repositories;
+
+import org.example.loginapp.domain.Role;
+import org.example.loginapp.domain.RolePermission;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface RolePermissionRepository extends JpaRepository<RolePermission, String> {
+    List<RolePermission> findByRole(Role role);
+}
+
+package org.example.loginapp.repositories;
+
+import org.example.loginapp.domain.UserEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository  extends JpaRepository<UserEntity, String> {
+    Optional<UserEntity> findByUserEmail(String email);
+}
+
+package org.example.loginapp.repositories;
+
+import org.example.loginapp.domain.UserEntity;
+import org.example.loginapp.domain.UserRole;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface UserRoleRepository extends JpaRepository<UserRole, String> {
+    List<UserRole> findByUserEntity(UserEntity userEntity);
+}
+
+DTOS
+
+package org.example.loginapp.dto;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record RegisterRequest(
+        @NotBlank(message = "O nome é obrigatório")
+        String name,
+
+        @NotBlank(message = "O e-mail é obrigatório")
+        @Email(message = "E-mail inválido")
+        String email,
+
+        @NotBlank(message = "A senha é obrigatória")
+        @Size(min = 8, message = "A senha deve ter no mínimo 8 caracteres")
+        String password,
+
+        @NotBlank(message = "O CPF é obrigatório")
+        @Size(min = 11, max = 11, message = "O CPF deve ter 11 dígitos")
+        String cpf
+) {
+}
+
+SERVICES
+
+package org.example.loginapp.services;
+
+import lombok.RequiredArgsConstructor;
+import org.example.loginapp.domain.UserEntity;
+import org.example.loginapp.repositories.UserRepository;
+import org.example.loginapp.repositories.UserRoleRepository;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class CustomUserDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        System.out.println("Tentando autenticar: " + email);
+        UserEntity user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+        System.out.println("Usuário encontrado, hash: " + user.getHashPassword());
+
+        List<GrantedAuthority> authorities = userRoleRepository.findByUserEntity(user).stream()
+                .map(ur -> new SimpleGrantedAuthority("ROLE_" + ur.getRole().getRoleName()))
+                .collect(Collectors.toList());
+
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getUserEmail())
+                .password(user.getHashPassword())
+                .authorities(authorities)
+                .disabled(!user.isActive())
+                .build();
+    }
+}
+
+CONFIG
+
+package org.example.loginapp.config;
+
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
+import org.example.loginapp.security.RefreshTokenCookieFilter;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenEndpointFilter;
+import org.example.loginapp.security.RefreshTokenParameterWrapper;
+
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.oidc.OidcScopes;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.session.DisableEncodeUrlFilter;
+import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.time.Duration;
+import java.util.UUID;
+
+@Configuration
+@EnableWebSecurity
+public class JwkConfig {
+
+    @Bean
+    @Order(1)
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .oauth2AuthorizationServer((authorizationServer) -> {
+                    http.securityMatcher(authorizationServer.getEndpointsMatcher());
+                    authorizationServer.oidc(Customizer.withDefaults()); // habilita OpenID Connect
+                })
+                .authorizeHttpRequests((authorize) ->
+                        authorize.anyRequest().authenticated()
+                )
+                .exceptionHandling((exceptions) -> exceptions
+                        .defaultAuthenticationEntryPointFor(
+                                new LoginUrlAuthenticationEntryPoint("/login"),
+                                new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
+                        )
+                );
+        http.addFilterBefore(new RefreshTokenCookieFilter(), DisableEncodeUrlFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/auth/register"))
+                .authorizeHttpRequests((authorize) -> authorize
+                        .requestMatchers("/auth/register", "/error", "/css/**", "/fonts/**", "/images/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .permitAll()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    public JWKSource<SecurityContext> jwkSource() {
+        KeyPair keyPair = generateRsaKey();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+
+        RSAKey rsaKey = new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(UUID.randomUUID().toString())
+                .build();
+
+        JWKSet jwkSet = new JWKSet(rsaKey);
+        return new ImmutableJWKSet<>(jwkSet);
+    }
+
+    private static KeyPair generateRsaKey() {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            return keyPairGenerator.generateKeyPair();
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
+        return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
+    }
+
+    @Bean
+    public AuthorizationServerSettings authorizationServerSettings() {
+        return AuthorizationServerSettings.builder()
+                .issuer("http://localhost:9000")
+                .build();
+    }
+
+    @Bean
+    public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
+
+        RegisteredClient bffClient = RegisteredClient.withId(UUID.randomUUID().toString())
+                .clientId("bff-client")
+                .clientSecret(passwordEncoder.encode("SENHA_FORTE_NO_FUTURO"))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                .redirectUri("http://localhost:9000/bff/callback") // aponta pro próprio backend, não mais pro Angular
+                .scope(OidcScopes.OPENID)
+                .scope(OidcScopes.PROFILE)
+                .clientSettings(ClientSettings.builder()
+                        .requireAuthorizationConsent(false)
+                        .requireProofKey(true) // PKCE continua recomendado mesmo em confidential client
+                        .build())
+                .tokenSettings(TokenSettings.builder()
+                        .accessTokenTimeToLive(Duration.ofMinutes(10))
+                        .refreshTokenTimeToLive(Duration.ofDays(7))
+                        .reuseRefreshTokens(false)
+                        .build())
+                .build();
+
+        return new InMemoryRegisteredClientRepository(bffClient);
+    }
+}
+
+package org.example.loginapp.config;
+
+import lombok.RequiredArgsConstructor;
+import org.example.loginapp.domain.Role;
+import org.example.loginapp.domain.UserRole;
+import org.example.loginapp.domain.UserEntity;
+import org.example.loginapp.repositories.RolePermissionRepository;
+import org.example.loginapp.repositories.UserRepository;
+import org.example.loginapp.repositories.UserRoleRepository;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+
+import java.util.*;
+
+@Configuration
+@RequiredArgsConstructor
+public class JwtCustomizerConfig {
+
+    private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> jwtTokenCustomizer() {
+        return context -> {
+            if (!context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)) {
+                return;
+            }
+
+            String email = context.getPrincipal().getName();
+            UserEntity user = userRepository.findByUserEmail(email).orElseThrow();
+
+            Map<String, List<String>> authoritiesBySystem = new HashMap<>();
+
+            for (UserRole userRole : userRoleRepository.findByUserEntity(user)) {
+                Role role = userRole.getRole();
+                if (role.getSystemEntity() == null) continue;
+
+                String systemName = role.getSystemEntity().getSystemName();
+
+                List<String> permissions = rolePermissionRepository.findByRole(role).stream()
+                        .map(rp -> rp.getPermission().getPermissionName())
+                        .toList();
+
+                authoritiesBySystem
+                        .computeIfAbsent(systemName, k -> new ArrayList<>())
+                        .addAll(permissions);
+            }
+
+            context.getClaims()
+                    .claim("authorities", authoritiesBySystem)
+                    .claim("name", user.getUserName());
+        };
+    }
+}
+
+package org.example.loginapp.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class PasswordConfig {
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+SECURITY
+
+package org.example.loginapp.security;
+
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ContentCachingResponseWrapper;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Map;
+
+public class RefreshTokenCookieFilter extends OncePerRequestFilter {
+
+    private static final String COOKIE_NAME = "refresh_token";
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+
+        if (!"/oauth2/token".equals(request.getRequestURI())) {
+            System.out.println(">>> RefreshTokenCookieFilter rodou para: " + request.getRequestURI());
+            chain.doFilter(request, response);
+            return;
+        }
+        System.out.println(">>> Processando /oauth2/token");
+        HttpServletRequest requestToUse = request;
+
+        if ("refresh_token".equals(request.getParameter("grant_type"))) {
+            String cookieValue = extractCookie(request);
+            if (cookieValue != null) {
+                requestToUse = new RefreshTokenParameterWrapper(request, cookieValue);
+            }
+        }
+
+        ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
+        chain.doFilter(requestToUse, wrappedResponse);
+
+        byte[] body = wrappedResponse.getContentAsByteArray();
+        System.out.println(">>> Status: " + wrappedResponse.getStatus() + " | Body length: " + body.length);
+
+        if (body.length > 0 && wrappedResponse.getStatus() == HttpServletResponse.SC_OK) {
+            System.out.println(">>> BODY BRUTO: " + new String(body, StandardCharsets.UTF_8));
+
+            Map<String, Object> json = mapper.readValue(body, new TypeReference<>() {});
+            Object refreshToken = json.remove("refresh_token");
+            System.out.println(">>> refresh_token encontrado: " + (refreshToken != null));
+            if (refreshToken != null) {
+                ResponseCookie cookie = ResponseCookie.from(COOKIE_NAME, refreshToken.toString())
+                        .httpOnly(true)
+                        .secure(false) // true em produção (HTTPS)
+                        .sameSite("Strict")
+                        .path("/oauth2/token")
+                        .maxAge(Duration.ofDays(7))
+                        .build();
+                response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+                System.out.println(">>> Cookie adicionado ao header");
+            }
+
+            byte[] newBody = mapper.writeValueAsBytes(json);
+            response.setContentLength(newBody.length);
+            response.getOutputStream().write(newBody);
+        } else {
+            wrappedResponse.copyBodyToResponse();
+        }
+    }
+
+    private String extractCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) return null;
+        return Arrays.stream(request.getCookies())
+                .filter(c -> c.getName().equals(COOKIE_NAME))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
+    }
+}
+
+package org.example.loginapp.security;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+
+import java.util.*;
+
+public class RefreshTokenParameterWrapper extends HttpServletRequestWrapper {
+
+    private final String refreshToken;
+
+    public RefreshTokenParameterWrapper(HttpServletRequest request, String refreshToken) {
+        super(request);
+        this.refreshToken = refreshToken;
+    }
+
+    @Override
+    public String getParameter(String name) {
+        return "refresh_token".equals(name) ? refreshToken : super.getParameter(name);
+    }
+
+    @Override
+    public String[] getParameterValues(String name) {
+        return "refresh_token".equals(name) ? new String[]{refreshToken} : super.getParameterValues(name);
+    }
+
+    @Override
+    public Map<String, String[]> getParameterMap() {
+        Map<String, String[]> map = new HashMap<>(super.getParameterMap());
+        map.put("refresh_token", new String[]{refreshToken});
+        return map;
+    }
+
+    @Override
+    public Enumeration<String> getParameterNames() {
+        Set<String> names = new HashSet<>(Collections.list(super.getParameterNames()));
+        names.add("refresh_token");
+        return Collections.enumeration(names);
+    }
+}
+
+CONTROLERS
+
+package org.example.loginapp.controllers;
+
+import lombok.RequiredArgsConstructor;
+import org.example.loginapp.domain.UserEntity;
+import org.example.loginapp.dto.RegisterRequest;
+import org.example.loginapp.repositories.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(@RequestBody RegisterRequest request) {
+
+        if (userRepository.findByUserEmail(request.email()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build(); // 409: e-mail já cadastrado
+        }
+
+        UserEntity user = new UserEntity();
+        user.setUserName(request.name());
+        user.setUserEmail(request.email());
+        user.setHashPassword(passwordEncoder.encode(request.password()));
+        user.setUserCpf(request.cpf());
+
+        userRepository.save(user);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+}
+
+package org.example.loginapp.controllers;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LoginController {
+    @GetMapping("/login")
+    public String login() {
+        return "login";
+    }
+}

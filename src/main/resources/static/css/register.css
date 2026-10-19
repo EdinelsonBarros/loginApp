@@ -1,0 +1,190 @@
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('../fonts/NotoSans-VariableFont_wdth,wght.ttf') format('truetype-variations'),
+    url('../fonts/NotoSans-VariableFont_wdth,wght.ttf') format('truetype');
+    font-weight: 100 900; /* Define a variação de peso suportada */
+    font-style: normal;
+}
+
+/* Fonte Itálica (Variável) */
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('../fonts/NotoSans-Italic-VariableFont_wdth,wght.ttf') format('truetype-variations'),
+    url('../fonts/NotoSans-Italic-VariableFont_wdth,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: italic;
+}
+
+*{
+    font-family: 'Noto Sans', sans-serif;
+}
+
+.logincontainer{
+
+    padding: 40px 30px;
+
+}
+.card{
+    display: grid;
+    grid-template-columns: 5fr 3.5fr;
+    border-radius: 20px 20px 20px 20px;
+    background-color: #eff2f4;
+    grid-template-rows: 85vh;
+
+}
+
+.conteinerImg {
+    width: 100%;
+
+    display: flex;
+    border-radius: 20px 0px 0px 20px;
+    align-items: center;
+    justify-content: center;
+
+}
+
+.imageBox {
+    position: relative;
+    width: 100%;      /* controla o tamanho da imagem dentro da coluna */
+    height: 100%;     /* controla a altura */
+    overflow: hidden;
+}
+
+.backimg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.imageBox::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: #50094bc4;
+    z-index: 1;
+}
+
+.text-overlay {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0rem 9rem 7rem 9rem;
+    color: white;
+
+}
+
+.text-overlay h1 {
+    font-size: 3rem;
+    font-weight: 400;
+    margin-bottom: 1rem;
+}
+
+.text-overlay p {
+    font-size: 1.3rem;
+    line-height: 1.5;
+}
+.conteinerImg {
+    position: relative;
+    width: auto;
+
+    overflow: hidden;
+}
+
+.backimg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.conteinerImg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    z-index: 1;
+}
+
+
+.conteinerForm{
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 40px 120px 20px 80px;
+
+}
+
+.cardicon{
+    background: linear-gradient(194deg,rgba(216, 218, 211, 1) 1%, rgba(216, 218, 211, 1) 55%, rgba(170, 171, 167, 1) 100%);
+    width: 60px;
+    height: auto;
+    border-radius: 5px;
+}
+
+form{
+
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+.conteinerInput{
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    background-color: #eff2f4;
+    margin: 0px 0px 30px 0px;
+
+}
+
+.inputLogin{
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    outline: none;
+    font-family: inherit;
+    font-size: inherit;
+
+    background-color: transparent;
+    padding: 5px;
+    height: 30px;
+    margin-top: 5px;
+
+
+    box-shadow: -1px 2px 5px rgba(0, 0, 0, 0.33);
+    border: solid 1px #dededf;
+    border-radius: 10px;
+}
+
+button{
+    margin-top: 20px;
+    height: 40px;
+    background-color: #EA54C0;
+    color: white;
+    font-weight: 900;
+    box-shadow: -1px 2px 5px rgba(0, 0, 0, 0.33);
+    border: solid 1px #dededf;
+    border-radius: 10px;
+}
+.conteinerForm h2{
+    margin-bottom: 1px;
+}
+
+label{
+    font-size: 1rem;
+
+}
+.acesso{
+    font-size: 0.75rem;
+    color: rgb(0 0 0 / 0.62);
+    margin: 0.6rem 0rem 2rem 0rem;
+}
+
+.cadratre-se{
+    align-self: center;
+    font-size: 0.8rem;
+}
