@@ -2,9 +2,7 @@
 
 Aplicação de autenticação multiempresa, na qual o primeiro usuário cadastrado será automaticamente definido como administrador responsável pela empresa, tendo a função de gerenciar os usuários, seus cadastros e suas permissões de acesso.
 
-O administrador poderá concedider privilégios de forma granular, por meio de perfis de acesso predefinidos para cada aplicação ou por perfis personalizados, permitindo definir quais aplicações cada usuário poderá acessar e quais funcionalidades estarão disponíveis em cada uma delas.
-
-, ainda, conceder privilégios administrativos a outros usuários, tanto para todas as aplicações sob sua responsabilidade quanto para aplicações específicas, conforme sua necessidade. Dessa forma, o sistema permitirá uma gestão flexível e segura dos usuários e das permissões, respeitando os limites de responsabilidade de cada administrador.
+O administrador poderá conceder privilégios de forma granular, por meio de perfis de acesso predefinidos para cada aplicação ou por perfis personalizados, permitindo definir quais aplicações cada usuário poderá acessar e quais funcionalidades estarão disponíveis em cada uma delas.
 
 
 
