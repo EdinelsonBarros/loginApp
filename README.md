@@ -1,0 +1,114 @@
+# LoginApp
+
+Aplicação de autenticação baseada em Spring Boot, com servidor de autorização OAuth 2.0/OpenID Connect e um BFF (Backend for Frontend). O projeto utiliza MySQL para persistência, Redis para sessões e Docker Compose para executar os serviços.
+
+## Tecnologias
+
+- Java 17 e Spring Boot
+- Spring Security e Spring Authorization Server
+- OAuth 2.0 / OpenID Connect, com Authorization Code, PKCE e cliente BFF confidencial
+- MySQL 8.4
+- Redis 7
+- Docker e Docker Compose
+
+## Pré-requisitos
+
+- Docker Engine com o plugin Docker Compose
+- Git, para obter o código-fonte
+- Um arquivo de chave PKCS#12 do servidor de autorização
+
+Na VM Alpine, os comandos Docker podem precisar do prefixo `doas`, conforme a configuração do usuário.
+
+## Configuração local
+
+1. Copie o arquivo de exemplo para `.env`:
+
+   ```sh
+   cp .env.example .env
+   ```
+
+   No PowerShell, use:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. Edite `.env` e defina valores próprios para estas variáveis:
+
+   | Variável | Uso |
+   | --- | --- |
+   | `DB_USER` | Usuário da aplicação no MySQL |
+   | `DB_PASSWORD` | Senha desse usuário |
+   | `MYSQL_ROOT_PASSWORD` | Senha administrativa do MySQL |
+   | `BFF_CLIENT_SECRET` | Segredo do cliente OAuth confidencial |
+   | `BFF_CALLBACK_URI` | URI de callback registrada, por exemplo `http://localhost:9000/bff/callback` |
+   | `BFF_AUTHORIZATION_URI` | Endpoint de autorização do servidor, por exemplo `http://localhost:9000/oauth2/authorize` |
+   | `JWK_KEYSTORE_PASSWORD` | Senha do arquivo PKCS#12 |
+   | `APP_PUBLIC_URL` | URL base pela qual o navegador acessa o backend |
+
+   Para executar na VM, use o endereço IP da VM em `APP_PUBLIC_URL`, `BFF_CALLBACK_URI` e na URL do endpoint de autorização. O callback deve corresponder exatamente à URI registrada para o cliente OAuth. Não use `localhost` nessas URLs quando o navegador estiver em outra máquina: nesse caso, `localhost` aponta para a máquina do navegador.
+
+3. Coloque a chave PKCS#12 em `secrets/auth-server.p12`. Esse arquivo é montado somente para leitura no container. Não o adicione ao Git.
+
+4. Confirme que `mysql/init/` contém os scripts SQL de inicialização necessários. O MySQL executa esses scripts quando o volume de dados é criado pela primeira vez.
+
+## Executar com Docker Compose
+
+Na pasta que contém `compose.yaml`:
+
+```sh
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+```
+
+No Alpine, acrescente `doas` a cada comando, se necessário:
+
+```sh
+doas docker compose config --quiet
+doas docker compose up -d --build
+doas docker compose ps
+```
+
+O MySQL e o Redis devem aparecer como `healthy`. O serviço `app` deve aparecer como `running`/`up`. Para acompanhar os logs:
+
+```sh
+docker compose logs -f app
+docker compose logs -f mysql
+docker compose logs -f redis
+```
+
+Para verificar a aplicação, acesse `http://localhost:9000` na própria máquina onde os containers estão executando. De outra máquina, substitua `localhost` pelo endereço IP da VM, por exemplo `http://<IP-DA-VM>:9000`.
+
+## Persistência e ciclo de vida
+
+Os dados do MySQL e do Redis ficam nos volumes nomeados `mysql_data` e `redis_data`. Parar os serviços com `docker compose down` preserva esses volumes. O comando abaixo também apaga os volumes e, portanto, remove os dados persistidos; use-o somente se quiser reiniciar o ambiente do zero:
+
+```sh
+docker compose down -v
+```
+
+Os scripts de `mysql/init/` não são executados novamente em um volume MySQL já inicializado. Para aplicar alterações de esquema em um ambiente existente, use uma estratégia de migração de banco adequada.
+
+## Segurança
+
+- Nunca versione `.env`, senhas, tokens, chaves privadas ou arquivos PKCS#12.
+- O `.gitignore` deve manter `.env`, `secrets/` e arquivos de chave fora do repositório.
+- Compartilhe `.env.example` apenas com nomes de variáveis e valores demonstrativos sem uso real.
+- Use segredos fortes e diferentes em cada ambiente.
+- Em produção, configure HTTPS e atualize as URLs de callback e de acesso público para o domínio protegido por TLS.
+
+## Estrutura relevante
+
+```text
+.
+├── compose.yaml
+├── Dockerfile
+├── pom.xml
+├── mysql/
+│   └── init/       # scripts SQL de inicialização
+├── secrets/        # chave local; não versionar
+└── src/
+    └── main/
+```
+
