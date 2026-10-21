@@ -18,10 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 
 @RestController
@@ -36,13 +33,13 @@ public class AuthController {
 
 
     @PostMapping("/register")
-    public ResponseEntity<Void> register(
-            @RequestBody RegisterRequest request,
+    public String register(
+            @ModelAttribute RegisterRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse
     ) {
         if (userRepository.findByUserEmail(request.email()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            return "redirect:/register?error=exists";
         }
 
         UserEntity user = new UserEntity();
@@ -60,16 +57,13 @@ public class AuthController {
                 )
         );
 
-        // Troca o identificador da sessão após a autenticação,
-        // ajudando a proteger contra session fixation.
         httpRequest.changeSessionId();
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
-
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return "redirect:/bff/login";
     }
 }
