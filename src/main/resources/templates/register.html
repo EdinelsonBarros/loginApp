@@ -25,9 +25,16 @@
             </div>
 
             <h2>Cadastro</h2>
-            <p id="formError" class="alert" hidden></p>
 
-            <form id="registerForm">
+            <p th:if="${param.registered}" class="info">
+                Cadastro realizado com sucesso.
+            </p>
+
+            <p th:if="${param.error}" class="alert">
+                Não foi possível realizar o cadastro. Confira os dados.
+            </p>
+
+            <form th:action="@{/auth/register}" method="post">
                 <div class="conteinerInput">
                     <label for="name">Nome:</label>
                     <input class="inputLogin" type="text" id="name"
@@ -71,57 +78,5 @@
         </div>
     </div>
 </main>
-
-<script>
-    const form = document.getElementById('registerForm');
-    const errorMessage = document.getElementById('formError');
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        errorMessage.hidden = true;
-
-        const name = document.getElementById('name').value.trim();
-        const email = document.getElementById('email').value.trim();
-        const cpf = document.getElementById('cpf').value.trim();
-        const password = document.getElementById('password').value;
-        const confirmPassword =
-            document.getElementById('confirmPassword').value;
-
-        if (password !== confirmPassword) {
-            errorMessage.textContent = 'As senhas não conferem.';
-            errorMessage.hidden = false;
-            return;
-        }
-
-        try {
-            const response = await fetch('/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name,
-                    email,
-                    cpf,
-                    password,
-                    confirmPassword
-                })
-            });
-
-            if (response.status === 201) {
-                window.location.assign('/login?registered=true');
-                return;
-            }
-
-            errorMessage.textContent =
-                response.status === 409
-                    ? 'Este e-mail ou CPF já está cadastrado.'
-                    : 'Não foi possível realizar o cadastro. Confira os dados.';
-            errorMessage.hidden = false;
-        } catch {
-            errorMessage.textContent =
-                'Não foi possível conectar ao servidor.';
-            errorMessage.hidden = false;
-        }
-    });
-</script>
 </body>
 </html>
