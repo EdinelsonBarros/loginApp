@@ -7,76 +7,74 @@
     <link rel="stylesheet" th:href="@{/css/register.css}">
 </head>
 <body>
-<main class="logincontainer">
-    <div class="card">
-        <div class="conteinerImg">
-            <div class="imageBox">
-                <img th:src="@{/images/backgroundLoginPage.jpg}" class="backimg">
-                <div class="text-overlay">
-                    <h1>Crie sua conta</h1>
-                    <p>Preencha seus dados para se cadastrar.</p>
-                </div>
-            </div>
-        </div>
+<main class="page">
+    <section class="card">
 
-        <div class="conteinerForm">
-            <div>
-                <img class="cardicon" th:src="@{/images/ellipse.png}">
+        <aside class="hero">
+            <img th:src="@{/images/backgroundLoginPage.jpg}" class="hero-img" alt="">
+            <div class="hero-text">
+                <h1>Crie sua conta</h1>
+                <p>Preencha seus dados para se cadastrar.</p>
             </div>
+        </aside>
+
+        <div class="panel">
+            <img class="card-icon" th:src="@{/images/ellipse.png}" alt="">
 
             <h2>Cadastro</h2>
+            <p class="subtitle">Leva menos de um minuto.</p>
 
-            <p th:if="${param.registered}" class="info">
+            <p th:if="${param.registered}" class="info" role="status">
                 Cadastro realizado com sucesso.
             </p>
 
-            <p th:if="${param.error}" class="alert">
+            <p th:if="${param.error}" class="alert-box" role="alert">
                 Não foi possível realizar o cadastro. Confira os dados.
             </p>
 
-            <form th:action="@{/auth/register}" method="post">
-                <div class="conteinerInput">
-                    <label for="name">Nome:</label>
-                    <input class="inputLogin" type="text" id="name"
-                           name="name" required autocomplete="name">
+            <form th:action="@{/auth/register}" method="post" class="form">
+                <div class="field">
+                    <label for="name">Nome</label>
+                    <input type="text" id="name" name="name"
+                           required autocomplete="name">
                 </div>
 
-                <div class="conteinerInput">
-                    <label for="email">E-mail:</label>
-                    <input class="inputLogin" type="email" id="email"
-                           name="email" required autocomplete="email">
+                <div class="field">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" name="email"
+                           placeholder="voce@exemplo.com.br"
+                           required autocomplete="email">
                 </div>
 
-                <div class="conteinerInput">
-                    <label for="cpf">CPF:</label>
-                    <input class="inputLogin" type="text" id="cpf"
-                           name="cpf" required inputmode="numeric"
+                <div class="field">
+                    <label for="cpf">CPF</label>
+                    <input type="text" id="cpf" name="cpf"
+                           required inputmode="numeric"
                            maxlength="11" pattern="[0-9]{11}"
                            placeholder="Somente números">
                 </div>
 
-                <div class="conteinerInput">
-                    <label for="password">Senha:</label>
-                    <input class="inputLogin" type="password" id="password"
-                           name="password" required minlength="8"
-                           autocomplete="new-password">
+                <div class="field">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" name="password"
+                           required minlength="8" autocomplete="new-password"
+                           aria-describedby="passwordHint">
+                    <small id="passwordHint" class="hint">Mínimo de 8 caracteres.</small>
                 </div>
 
-                <div class="conteinerInput">
-                    <label for="confirmPassword">Confirme a senha:</label>
-                    <input class="inputLogin" type="password"
-                           id="confirmPassword" name="confirmPassword"
+                <div class="field">
+                    <label for="confirmPassword">Confirme a senha</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword"
                            required minlength="8" autocomplete="new-password">
                 </div>
 
-                <button class="btn" type="submit">CADASTRAR</button>
+                <button class="btn" type="submit">Criar conta</button>
             </form>
 
-            <p class="acesso">
-                Já tem conta? <a th:href="@{/login}">Voltar ao login</a>
-            </p>
+            <p class="signup">Já tem conta? <a th:href="@{/login}">Voltar ao login</a></p>
         </div>
-    </div>
+
+    </section>
 </main>
 </body>
 </html>
