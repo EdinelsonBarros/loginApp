@@ -3,8 +3,13 @@ package org.example.loginapp.controllers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.loginapp.domain.Company;
+import org.example.loginapp.domain.CompanyManaging;
+import org.example.loginapp.domain.UserEntity;
 import org.example.loginapp.dto.CompanyRegistrationRequest;
+import org.example.loginapp.repositories.CompanyManagingRepository;
 import org.example.loginapp.repositories.CompanyRepository;
+import org.example.loginapp.repositories.UserRepository;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 public class CompanyController {
 
     private final CompanyRepository companyRepository;
+    private final UserRepository userRepository;
+    private final CompanyManagingRepository companyManagingRepository;
 
     @GetMapping("/companyRegister")
     public String companyRegister(
@@ -35,7 +42,8 @@ public class CompanyController {
     public String registerCompany(
             @Valid @ModelAttribute("companyForm")
             CompanyRegistrationRequest form,
-            BindingResult bindingResult
+            BindingResult bindingResult,
+            Authentication authentication
     ) {
         if (companyRepository.existsByCnpj(form.cnpj())) {
             bindingResult.rejectValue(
@@ -49,6 +57,9 @@ public class CompanyController {
             return "companyRegister";
         }
 
+        UserEntity user = userRepository.findByUserEmail(authentication.getName())
+                .orElseThrow();
+
         Company company = new Company();
         company.setNomeFantasia(form.nomeFantasia());
         company.setCompanySocialName(form.companySocialName());
@@ -60,6 +71,12 @@ public class CompanyController {
         company.setCity(form.city());
 
         companyRepository.save(company);
+
+        CompanyManaging companyManaging = new CompanyManaging();
+        companyManaging.setCompany(company);
+        companyManaging.setUserEntity(user);
+
+        companyManagingRepository.save(companyManaging);
 
         return "redirect:/companyRegister?registered";
     }
