@@ -65,6 +65,6 @@ public class AuthController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
-        return "redirect:/bff/login";
+        return "redirect:/companyRegister";
     }
 }
