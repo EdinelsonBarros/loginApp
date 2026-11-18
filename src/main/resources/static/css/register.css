@@ -17,19 +17,19 @@
 }
 
 :root {
-    --bg: #f3f4f8;
-    --surface: #ffffff;
-    --text: #1d1b26;
-    --muted: #6b6878;
-    --border: #dcdae4;
-    --accent: #ea54c0;
-    --accent-dark: #c93ba1;
-    --accent-soft: rgba(234, 84, 192, 0.18);
-    --danger: #c0262d;
-    --danger-bg: #fdecec;
-    --success-bg: #e7f6ec;
-    --success-text: #1b6b3a;
-    --radius: 12px;
+    --bg: #f9faff;                        /* era #f3f4f8 → --navy-50 */
+    --surface: #ffffff;                    /* igual nas duas */
+    --text: #1a2238;                       /* era #1d1b26 → --text da primária */
+    --muted: #6b7690;                      /* era #6b6878 → --text-muted */
+    --border: #bbbcbd;                     /* era #dcdae4 → --border da primária */
+    --accent: #3b82f6;                     /* era #ea54c0 (rosa) → azul de destaque */
+    --accent-dark: #2f4a85;                /* era #c93ba1 → --navy-500 */
+    --accent-soft: rgba(59, 130, 246, 0.18); /* mesmo azul do accent, com 18% de opacidade */
+    --danger: #c0262d;                     /* mantido: sem equivalente na primária */
+    --danger-bg: #fdecec;                  /* mantido */
+    --success-bg: #e7f6ec;                 /* mantido */
+    --success-text: #1b6b3a;               /* mantido */
+    --radius: 14px;
 }
 
 *,
@@ -93,7 +93,7 @@ body {
     position: absolute;
     inset: 0;
     z-index: 1;
-    background: linear-gradient(to top, rgba(55, 6, 51, 0.92) 0%, rgba(80, 9, 75, 0.65) 55%, rgba(80, 9, 75, 0.55) 100%);
+    background: linear-gradient(to top, rgba(15, 28, 63, 0.92) 0%, rgba(27, 47, 94, 0.65) 55%, rgba(27, 47, 94, 0.55) 100%);
 }
 
 .hero-text {
@@ -132,7 +132,8 @@ body {
     height: 56px;
     object-fit: cover;
     border-radius: 14px;
-    background: linear-gradient(194deg, #d8dad3 1%, #d8dad3 55%, #aaaba7 100%);
+    background: linear-gradient(194deg, #e6ebf5 1%, #c9d3e887 55%, #8fa3c921 100%);
+    padding: 5px;
     margin-bottom: 20px;
 }
 
@@ -239,7 +240,7 @@ button {
     border: 0;
     border-radius: var(--radius);
     cursor: pointer;
-    box-shadow: 0 8px 20px -8px rgba(234, 84, 192, 0.7);
+    box-shadow: 0 8px 20px -8px rgba(59, 130, 246, 0.7);
     transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 
@@ -253,7 +254,7 @@ button {
 
 .btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 4px var(--accent-soft), 0 8px 20px -8px rgba(234, 84, 192, 0.7);
+    box-shadow: 0 0 0 4px var(--accent-soft), 0 8px 20px -8px rgba(59, 130, 246, 0.7);
 }
 
 .signup {
