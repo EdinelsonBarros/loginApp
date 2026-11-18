@@ -14,19 +14,18 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.MessageDigest;
 import java.util.Map;
 import org.springframework.security.core.Authentication;
-import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.client.RestClientResponseException;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -238,11 +237,10 @@ public class BffController {
     }
     @PostMapping("/bff/logout")
     @ResponseBody
-    public Map<String, Object> logout(HttpSession session) {
-        session.removeAttribute("bff_access_token");
-        session.removeAttribute("bff_refresh_token");
-        session.removeAttribute("bff_id_token");
-
+    public Map<String, Object> logout(HttpServletRequest request,
+                                      HttpServletResponse response,
+                                      Authentication authentication) {
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
         return Map.of("loggedOut", true);
     }
 
