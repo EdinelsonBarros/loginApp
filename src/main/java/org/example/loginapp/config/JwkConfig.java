@@ -59,6 +59,7 @@ import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.http.SessionCreationPolicy;
 
 @Configuration
 @EnableWebSecurity
@@ -77,6 +78,8 @@ public class JwkConfig {
 
     @Value("${bff.signing.password}")
     private String signingKeyStorePassword;
+
+
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
@@ -134,6 +137,28 @@ public class JwkConfig {
 
     @Bean
     @Order(2)
+    public SecurityFilterChain systemRegistrySecurityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+        http
+                .securityMatcher("/api/registry/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authorizeHttpRequests(authorize ->
+                        authorize.anyRequest()
+                                .hasAuthority("SCOPE_system.register")
+                )
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(Customizer.withDefaults())
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(3)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
@@ -221,7 +246,12 @@ public class JwkConfig {
     public RegisteredClientRepository registeredClientRepository(
             JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
-            @Value("${bff.client.secret}") String clientSecret,
+            @Value("${system.registry.client-id}")
+            String registryClientId,
+            @Value("${system.registry.client-secret}")
+            String registryClientSecret,
+            @Value("${bff.client.secret}")
+            String clientSecret,
             @Value("${bff.client.redirect-uri:http://localhost:9000/bff/callback}")
             String redirectUri
     ) {
@@ -252,9 +282,30 @@ public class JwkConfig {
                             .reuseRefreshTokens(false)
                             .build())
                     .build();
-
             repository.save(bffClient);
         }
+            if (repository.findByClientId(registryClientId) == null) {
+                RegisteredClient registryClient = RegisteredClient
+                        .withId(UUID.randomUUID().toString())
+                        .clientId(registryClientId)
+                        .clientSecret(passwordEncoder.encode(registryClientSecret))
+                        .clientAuthenticationMethod(
+                                ClientAuthenticationMethod.CLIENT_SECRET_BASIC
+                        )
+                        .authorizationGrantType(
+                                AuthorizationGrantType.CLIENT_CREDENTIALS
+                        )
+                        .scope("system.register")
+                        .tokenSettings(TokenSettings.builder()
+                                .accessTokenTimeToLive(Duration.ofMinutes(5))
+                                .build())
+                        .build();
+
+                repository.save(registryClient);
+            }
+
+
+
 
         return repository;
     }

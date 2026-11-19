@@ -51,6 +51,8 @@ services:
       BFF_SIGNING_KEYSTORE: file:/run/secrets/auth-server.p12
       JWK_KEYSTORE_PASSWORD: ${JWK_KEYSTORE_PASSWORD}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL}
+      SYSTEM_REGISTRY_CLIENT_ID: ${SYSTEM_REGISTRY_CLIENT_ID}
+      SYSTEM_REGISTRY_CLIENT_SECRET: ${SYSTEM_REGISTRY_CLIENT_SECRET}
     volumes:
       - ./secrets/auth-server.p12:/run/secrets/auth-server.p12:ro
     restart: unless-stopped
