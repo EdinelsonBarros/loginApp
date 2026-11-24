@@ -1,6 +1,8 @@
 package org.example.loginapp.controllers;
 
 import jakarta.servlet.http.HttpSession;
+import org.example.loginapp.dto.MenuSystemResponse;
+import org.example.loginapp.services.MenuService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,6 +14,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.MessageDigest;
+import java.util.List;
 import java.util.Map;
 import org.springframework.security.core.Authentication;
 
@@ -37,6 +40,9 @@ public class BffController {
     private final SecureRandom secureRandom = new SecureRandom();
 
     private final RestClient restClient = RestClient.create();
+    private final MenuService menuService;
+
+    //private final MenuService menuService = new MenuService();
 
     @Value("${bff.token-uri:http://localhost:9000/oauth2/token}")
     private String tokenUri;
@@ -56,6 +62,10 @@ public class BffController {
 
     @Value("${app.frontend-url:http://localhost:4200}")
     private String frontendUrl;
+
+    public BffController(MenuService menuService) {
+        this.menuService = menuService;
+    }
 
     @GetMapping("/bff/login")
     public String login(HttpServletRequest request) throws Exception {
@@ -174,6 +184,18 @@ public class BffController {
         );
     }
 
+    @GetMapping("/bff/me/systems")
+    @ResponseBody
+    public List<MenuSystemResponse> mySystems(Authentication authentication) {
+        if (authentication == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Usuário não autenticado no BFF"
+            );
+        }
+
+        return menuService.findSystemsForUser(authentication.getName());
+    }
     @PostMapping("/bff/refresh")
     @ResponseBody
     public Map<String, Object> refresh(HttpSession session) {

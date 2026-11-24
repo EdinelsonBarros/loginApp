@@ -36,6 +36,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - default
+      - onemanager-net
     ports:
       - "9000:9000"
     environment:
@@ -61,3 +64,9 @@ services:
 volumes:
   mysql_data:
   redis_data:
+
+networks:
+  default: { }
+  onemanager-net:
+    name: onemanager-net
+    external: true

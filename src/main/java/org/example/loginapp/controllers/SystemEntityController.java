@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 @RestController
 @RequestMapping("/api/registry/systems")
@@ -23,8 +25,15 @@ public class SystemEntityController {
     @PutMapping("/{systemCode}")
     public ResponseEntity<SystemRegistrationResponse> ensureRegistered(
             @PathVariable String systemCode,
-            @Valid @RequestBody SystemRegistrationRequest request
+            @Valid @RequestBody SystemRegistrationRequest request,
+            JwtAuthenticationToken authentication
     ) {
+        String clientId = authentication.getToken().getClaimAsString("client_id");
+
+        if (!systemCode.equals(clientId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         SystemEntity system = systemRegistrationService.ensureRegistered(
                 systemCode,
                 request

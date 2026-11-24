@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
 import java.util.*;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
 
 @Configuration
 @RequiredArgsConstructor
@@ -31,6 +32,17 @@ public class JwtCustomizerConfig {
             }
 
             String email = context.getPrincipal().getName();
+
+            if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(
+                    context.getAuthorizationGrantType()
+            )) {
+                context.getClaims().claim(
+                        "client_id",
+                        context.getRegisteredClient().getClientId()
+                );
+                return;
+            }
+
             UserEntity user = userRepository.findByUserEmail(email).orElseThrow();
 
             Map<String, List<String>> authoritiesBySystem = new HashMap<>();
